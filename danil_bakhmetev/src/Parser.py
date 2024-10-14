@@ -1,16 +1,13 @@
 import csv
 import logging
 
-
 class Parser_Employee:
     """
     Класс для парсинга CSV файлов
     """
     def __init__(self, path):
-
         self.data = []
         self.parse_csv(path)
-
 
     def parse_csv(self, path: str) -> None:
         """Читает CSV файл в память
@@ -43,7 +40,6 @@ class Parser_Employee:
             # то поднимаем исключение IOError
             raise IOError(f"Ошибка при чтении {path}: {e}") from e
 
-
     def check_row(self, row: dict) -> bool:
         """Проверяет соответствие структуры данных в строке
 
@@ -53,6 +49,14 @@ class Parser_Employee:
         Возвращает:
             bool: True если соответствует, False если нет
         """
+        try:
+            # Преобразуем строки в нужные типы данных
+            row["E_ID"] = int(row["E_ID"])
+            row["E_CONT_NO"] = int(row["E_CONT_NO"])
+        except ValueError as e:
+            logging.error(f"Ошибка преобразования типов: {e}")
+            return False
+
         # проверяем соответствие типов
         if not isinstance(row["E_ID"], int):
             logging.error(f"Ошибка: E_ID должен быть int, а не {type(row['E_ID']).__name__}")
@@ -74,4 +78,3 @@ class Parser_Employee:
             return False
 
         return True
-
