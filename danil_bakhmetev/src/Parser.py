@@ -10,71 +10,57 @@ class Parser_Employee:
         self.parse_csv(path)
 
     def parse_csv(self, path: str) -> None:
-        """Читает CSV файл в память
+        """Reads a CSV file into memory
 
-        Аргументы:
-            path (str): Путь к файлу
+        Args:
+            path (str): Path to the file
 
-        Исключения:
-            ValueError: Если path пустой
-            IOError: Если происходит ошибка при чтении файла
+        Raises:
+            ValueError: If path is empty
+            IOError: If there is an error reading the file
         """
-        # Проверка на пустоту пути
+        # Check if the path is empty
         if not path:
-            raise ValueError("Путь не может быть пустым")
+            raise ValueError("Path cannot be empty")
 
         try:
-            # Открываем файл для чтения
+            # Read the file in one go
             with open(path, "r", newline="") as file:
-                # создаем объект reader для чтения CSV
+                # Create a reader and read the file
                 reader = csv.DictReader(file)
-                # Читаем файл построчно и добавляем
-                # каждую строку в список data
-                for row in reader:
-                    if self.check_row(row):
-                        self.data.append(dict(row))
-                    else:
-                        logging.error(f"Строка {row} не соответствует структуре")
+                # Convert to a list and assign to data
+                self.data = [dict(row) for row in reader if self.check_row(row)]
         except IOError as e:
-            # если возникла ошибка при чтении файла,
-            # то поднимаем исключение IOError
-            raise IOError(f"Ошибка при чтении {path}: {e}") from e
+            # If there is an error reading the file, raise an IOError
+            raise IOError(f"Error reading {path}: {e}") from e
 
     def check_row(self, row: dict) -> bool:
-        """Проверяет соответствие структуры данных в строке
+        """Check if the row has the correct structure
 
-        Аргументы:
-            row (dict): Словарь со строкой
+        Args:
+            row (dict): A dictionary with the row
 
-        Возвращает:
-            bool: True если соответствует, False если нет
+        Returns:
+            bool: True if the row is valid, False if not
         """
-        try:
-            # Преобразуем строки в нужные типы данных
-            row["E_ID"] = int(row["E_ID"])
-            row["E_CONT_NO"] = int(row["E_CONT_NO"])
-        except ValueError as e:
-            logging.error(f"Ошибка преобразования типов: {e}")
-            return False
-
-        # проверяем соответствие типов
-        if not isinstance(row["E_ID"], int):
-            logging.error(f"Ошибка: E_ID должен быть int, а не {type(row['E_ID']).__name__}")
-            return False
-        if not isinstance(row["E_NAME"], str) or len(row["E_NAME"]) > 30:
-            logging.error(f"Ошибка: E_NAME должен быть str длиной не более 30, а не {type(row['E_NAME']).__name__} длиной {len(row['E_NAME'])}")
-            return False
-        if not isinstance(row["E_DESIGNATION"], str) or len(row["E_DESIGNATION"]) > 40:
-            logging.error(f"Ошибка: E_DESIGNATION должен быть str длиной не более 40, а не {type(row['E_DESIGNATION']).__name__} длиной {len(row['E_DESIGNATION'])}")
-            return False
-        if not isinstance(row["E_ADDR"], str) or len(row["E_ADDR"]) > 100:
-            logging.error(f"Ошибка: E_ADDR должен быть str длиной не более 100, а не {type(row['E_ADDR']).__name__} длиной {len(row['E_ADDR'])}")
-            return False
-        if not isinstance(row["E_BRANCH"], str) or len(row["E_BRANCH"]) > 15:
-            logging.error(f"Ошибка: E_BRANCH должен быть str длиной не более 15, а не {type(row['E_BRANCH']).__name__} длиной {len(row['E_BRANCH'])}")
-            return False
-        if not isinstance(row["E_CONT_NO"], int):
-            logging.error(f"Ошибка: E_CONT_NO должен быть int, а не {type(row['E_CONT_NO']).__name__}")
-            return False
-
+        valid_types = {
+            "E_ID": int,
+            "E_NAME": lambda x: isinstance(x, str) and len(x) <= 30,
+            "E_DESIGNATION": lambda x: isinstance(x, str) and len(x) <= 40,
+            "E_ADDR": lambda x: isinstance(x, str) and len(x) <= 100,
+            "E_BRANCH": lambda x: isinstance(x, str) and len(x) <= 15,
+            "E_CONT_NO": int,
+        }
+        for key, value_type in valid_types.items():
+            if not isinstance(row[key], value_type):
+                logging.error(
+                    f"Error: {key} should be {value_type.__name__}, not {type(row[key]).__name__}"
+                )
+                return False
         return True
+
+
+
+
+s = Parser_Employee('./Employee_Details.csv')
+print(s.data)
