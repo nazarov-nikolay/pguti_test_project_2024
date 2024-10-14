@@ -67,7 +67,7 @@ class SQLmeneg:
         """
         self.cur.execute(""" 
             CREATE TABLE IF NOT EXISTS EMPLOYEE (
-                E_ID SERIAL PRIMARY KEY,
+                E_ID INT PRIMARY KEY,
                 E_NAME VARCHAR(30),
                 E_DESIGNATION VARCHAR(40),
                 E_ADDR VARCHAR(100),
