@@ -1,24 +1,26 @@
 import sqlite3
 import logging
+from typing import List, Dict, Any
 from Parser import Parser_Employee
 
-logging.basicConfig(level=logging.INFO)
 
 class SQLmeneg:
-    def __init__(self, path):
-        self.path = path
-        self.conn = sqlite3.connect('employee.db')
-        self.cur = self.conn.cursor()
+    """
+    Класс для работы с базой данных.
+    """
+    def __init__(self, path: str):
+        """
+        Инициализация класса.
         
-    def create_db(self):
-        """Creates a database with the following structure:
-
-        E_ID = int,
-        E_NAME = varchar(30),
-        E_DESIGNATION = varchar(40),
-        E_ADDR = varchar(100),
-        E_BRANCH = varchar(15),
-        E_CONT_NO = int
+        :param path: Путь к файлу базы данных.
+        """
+        self.path = path
+        self.conn = sqlite3.connect(path)
+        self.cur = self.conn.cursor()
+    
+    def create_db(self) -> None:
+        """
+        Создание базы данных.
         """
         self.cur.execute("""
             CREATE TABLE IF NOT EXISTS EMPLOYEE (
@@ -32,46 +34,96 @@ class SQLmeneg:
         """)
         self.conn.commit()
         
-    def add_employee(self):
-        """добовление всего что содежиться в csv используя парсер"""
-        logging.info("Start adding employee")
-        s = Parser_Employee(self.path)
-       
-       # выбираем значения из словаря и добавляем в базу
-        for i in s.data:
-            if i is None or i['E_ID'] is None or i['E_NAME'] is None or i['E_DESIGNATION'] is None or i['E_ADDR'] is None or i['E_BRANCH'] is None or i['E_CONT_NO'] is None:
-                logging.error("Error: Some of the values in the CSV file are empty")
-                raise ValueError("Error: Some of the values in the CSV file are empty")
-            
-            # 1. выбираем строку из базы, если есть, то обновляем, если нет, то добавляем
-            self.cur.execute("""
-                SELECT * FROM EMPLOYEE WHERE E_ID = ?
-            """, (i['E_ID'],))
-            
-            # 2. если нет, то добавляем
-            row = self.cur.fetchone()
-            
-            if row is None:
-                logging.info(f"Add employee with id {i['E_ID']}")
-                self.cur.execute("""
-                    INSERT INTO EMPLOYEE (E_ID, E_NAME, E_DESIGNATION, E_ADDR, E_BRANCH, E_CONT_NO) 
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (i['E_ID'], i['E_NAME'], i['E_DESIGNATION'], i['E_ADDR'], i['E_BRANCH'], i['E_CONT_NO']))
-                
-            # 3. если есть, то обновляем
-            else:
-                logging.info(f"Update employee with id {i['E_ID']}")
-                self.cur.execute("""
-                    UPDATE EMPLOYEE SET E_NAME = ?, E_DESIGNATION = ?, E_ADDR = ?, E_BRANCH = ?, E_CONT_NO = ?
-                    WHERE E_ID = ?
-                """, (i['E_NAME'], i['E_DESIGNATION'], i['E_ADDR'], i['E_BRANCH'], i['E_CONT_NO'], i['E_ID']))
-                
-            # 4. сохраняем изменения
-            self.conn.commit()
-            
-        logging.info("End adding employee")
-            
-            
-s = SQLmeneg('./Employee_Details.csv')
-s.create_db()
-s.add_employee()
+    def add_employees(self, data: List[Dict[str, Any]]) -> None:
+        """
+        Добавление сотрудников в базу данных.
+
+        :param data: Список словарей с информацией о сотрудниках.
+        """
+        if not data:
+            logging.warning("List of employees is empty")
+            return
+        
+        logging.info("Start adding employees")
+        for i in data:
+            if not self._is_valid_row(i):
+                continue
+            self._add_or_update(i)
+        logging.info("End adding employees")
+        
+    def _is_valid_row(self, row: Dict[str, Any]) -> bool:
+        """
+        Check if a row is valid.
+
+        A row is valid if it has the correct types and lengths for each column.
+
+        :param row: A dictionary with employee information.
+        :return: True if the row is valid, False otherwise.
+        """
+        columns = [
+            ('E_ID', int),
+            ('E_NAME', str, 30),
+            ('E_DESIGNATION', str, 40),
+            ('E_ADDR', str, 100),
+            ('E_BRANCH', str, 15),
+            ('E_CONT_NO', int),
+        ]
+        for column, expected_type, *expected_lengths in columns:
+            value = row[column]
+            if not isinstance(value, expected_type):
+                return False
+            if expected_lengths and len(value) > expected_lengths[0]:
+                return False
+        return True
+    
+    def _add_or_update(self, row: Dict[str, Any]) -> None:
+        """
+        Добавляет или обновляет сотрудника в базе данных.
+        
+        :param row: Словарь с информацией о сотруднике.
+        """
+        query = """
+            SELECT * FROM EMPLOYEE WHERE E_ID = ?
+        """
+        self.cur.execute(query, (row['E_ID'],))
+        employee = self.cur.fetchone()
+        
+        if employee is None:
+            # добавляем нового сотрудника
+            query = """
+                INSERT INTO EMPLOYEE (E_ID, E_NAME, E_DESIGNATION, E_ADDR, E_BRANCH, E_CONT_NO) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            """
+            self.cur.execute(query, (
+                row['E_ID'],
+                row['E_NAME'],
+                row['E_DESIGNATION'],
+                row['E_ADDR'],
+                row['E_BRANCH'],
+                row['E_CONT_NO'],
+            ))
+        else:
+            # обновляем информацию о существующем сотруднике
+            query = """
+                UPDATE EMPLOYEE SET E_NAME = ?, E_DESIGNATION = ?, E_ADDR = ?, E_BRANCH = ?, E_CONT_NO = ?
+                WHERE E_ID = ?
+            """
+            self.cur.execute(query, (
+                row['E_NAME'],
+                row['E_DESIGNATION'],
+                row['E_ADDR'],
+                row['E_BRANCH'],
+                row['E_CONT_NO'],
+                row['E_ID'],
+            ))
+        
+        # сохраняем изменения
+        self.conn.commit()        
+        
+        
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    s = SQLmeneg('./Employee_Details.db')
+    s.create_db()
+    p = Parser_Employee('./Employee_Details.csv')
+    s.add_employees(p.data)
